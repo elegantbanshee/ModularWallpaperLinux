@@ -10,6 +10,7 @@ import java.nio.file.Paths;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.util.Locale;
 import java.util.UUID;
 
 public class ModularWallpaperLinux {
@@ -81,13 +82,26 @@ public class ModularWallpaperLinux {
     private static void updateWallpaper() {
         Path imagePath = Paths.get( imagePathGlobal);
         try {
-            ProcessBuilder processBuilder = new ProcessBuilder(
-                    "xfconf-query",
-                    "-c", "xfce4-desktop",
-                    "-p", "/backdrop/screen0/monitoreDP-1/workspace0/last-image",
-                    "-s", imagePath.toAbsolutePath().toString()
-            );
-            processBuilder.start();
+            ProcessBuilder processBuilder;
+            switch (System.getenv("XDG_CURRENT_DESKTOP").toUpperCase(Locale.US)) {
+                case "XFCE": processBuilder = new ProcessBuilder(
+                        "xfconf-query",
+                        "-c", "xfce4-desktop",
+                        "-p", "/backdrop/screen0/monitoreDP-1/workspace0/last-image",
+                        "-s", imagePath.toAbsolutePath().toString()
+                ); break;
+                case "GNOME": processBuilder = new ProcessBuilder(
+                        "gsettings",
+                        "set",
+                        "org.gnome.desktop.background picture-uri",
+                        imagePath.toAbsolutePath().toString()
+                ); break;
+                default: processBuilder = null;
+                System.out.println("Unsupported desktop environment");
+                break;
+            }
+            if (processBuilder != null)
+                processBuilder.start();
         }
         catch (IOException e) {
             e.printStackTrace();
@@ -95,7 +109,14 @@ public class ModularWallpaperLinux {
     }
 
     private static void setSystemTrayIcon() {
-        SystemTray systemTray = SystemTray.getSystemTray();
+        SystemTray systemTray;
+        try {
+            systemTray = SystemTray.getSystemTray();
+        }
+        catch (UnsupportedOperationException e) {
+            System.out.println("The system tray is not supported in this desktop environment!");
+            return;
+        }
         Path imagePath = Paths.get(getDataPath(), "/icon.png");
         Image image = Toolkit.getDefaultToolkit().getImage(imagePath.toString());
 
